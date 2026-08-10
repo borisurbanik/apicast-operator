@@ -941,20 +941,6 @@ spec:
                   a protocol-specific proxy is not specified. Authentication is not supported.
                   Format is <scheme>://<host>:<port>
                 type: string
-              caCertificateSecretRef:
-                description: CACertificateSecretRef references secret containing the X.509 CA certificate in the PEM format.
-                properties:
-                  name:
-                    default: ""
-                    description: |-
-                      Name of the referent.
-                      This field is effectively required, but due to backwards compatibility is
-                      allowed to be empty. Instances of this type with an empty value here are
-                      almost certainly wrong.
-                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                    type: string
-                type: object
-                x-kubernetes-map-type: atomic
               cacheConfigurationSeconds:
                 description: |-
                   The period (in seconds) that the APIcast configuration will be stored in
@@ -973,6 +959,20 @@ spec:
                 - boot
                 - lazy
                 type: string
+              customCABundleConfigMapRef:
+                description: CustomCABundleConfigMapRef references a ConfigMap containing the X.509 CA certificate bundle in PEM format under the key ca-bundle.crt.
+                properties:
+                  name:
+                    default: ""
+                    description: |-
+                      Name of the referent.
+                      This field is effectively required, but due to backwards compatibility is
+                      allowed to be empty. Instances of this type with an empty value here are
+                      almost certainly wrong.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
               customEnvironments:
                 description: CustomEnvironments specifies an array of defined custome environments to be loaded
                 items:

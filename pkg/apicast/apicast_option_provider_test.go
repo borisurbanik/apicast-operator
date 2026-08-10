@@ -185,41 +185,45 @@ func TestOpentelemetryOptions(t *testing.T) {
 	})
 }
 
-func TestInvalidCaCertificateOption(t *testing.T) {
+func TestInvalidCustomCABundleOption(t *testing.T) {
 	namespace := "my-ns"
 	apicastConfigSecretName := "my-secret"
 	embeddedConfigSecret := GetTestSecret(namespace, apicastConfigSecretName,
 		map[string]string{"config.json": "{}"},
 	)
 
-	invalid_cacertSecret := GetTestSecret(namespace, "cacert",
-		map[string]string{
+	invalid_cacertConfigMap := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cacert",
+			Namespace: namespace,
+		},
+		Data: map[string]string{
 			"a.crt": "{}",
 		},
-	)
+	}
 	cases := []struct {
 		testName      string
-		secretRef     *v1.LocalObjectReference
-		secret        *v1.Secret
+		configMapRef  *v1.LocalObjectReference
+		configMap     *v1.ConfigMap
 		expectedError string
 	}{
 		{
-			"Secret ref not set",
+			"ConfigMap ref not set",
 			&v1.LocalObjectReference{},
 			nil,
-			"spec.caCertificateSecretRef.name: Required value: secret name not provided",
+			"spec.customCABundleConfigMapRef.name: Required value: configmap name not provided",
 		},
 		{
-			"Secret ref provided but secret does not exist",
+			"ConfigMap ref provided but configmap does not exist",
 			&v1.LocalObjectReference{Name: "cacert"},
 			nil,
-			"secrets \"cacert\" not found",
+			"configmaps \"cacert\" not found",
 		},
 		{
-			"Secret key not provided",
+			"ConfigMap key not provided",
 			&v1.LocalObjectReference{Name: "cacert"},
-			invalid_cacertSecret,
-			"Required value: Required secret key, ca-bundle.crt not found",
+			invalid_cacertConfigMap,
+			"Required value: Required configmap key, ca-bundle.crt not found",
 		},
 	}
 
@@ -233,13 +237,13 @@ func TestInvalidCaCertificateOption(t *testing.T) {
 					EmbeddedConfigurationSecretRef: &v1.LocalObjectReference{
 						Name: apicastConfigSecretName,
 					},
-					CACertificateSecretRef: tc.secretRef,
+					CustomCABundleConfigMapRef: tc.configMapRef,
 				},
 			}
 
 			objs := []runtime.Object{embeddedConfigSecret}
-			if tc.secret != nil {
-				objs = append(objs, tc.secret)
+			if tc.configMap != nil {
+				objs = append(objs, tc.configMap)
 			}
 			cl := fake.NewClientBuilder().WithRuntimeObjects(objs...).Build()
 			optsProvider := NewApicastOptionsProvider(apicastCR, cl)
@@ -255,18 +259,22 @@ func TestInvalidCaCertificateOption(t *testing.T) {
 	}
 }
 
-func TestCaCertificateOption(t *testing.T) {
+func TestCustomCABundleOption(t *testing.T) {
 	namespace := "my-ns"
 	apicastConfigSecretName := "my-secret"
 	embeddedConfigSecret := GetTestSecret(namespace, apicastConfigSecretName,
 		map[string]string{"config.json": "{}"},
 	)
 
-	cacertSecret := GetTestSecret(namespace, "cacert",
-		map[string]string{
+	cacertConfigMap := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cacert",
+			Namespace: namespace,
+		},
+		Data: map[string]string{
 			"ca-bundle.crt": "{}",
 		},
-	)
+	}
 
 	apicastCR := &appsv1alpha1.APIcast{
 		ObjectMeta: metav1.ObjectMeta{
@@ -276,13 +284,13 @@ func TestCaCertificateOption(t *testing.T) {
 			EmbeddedConfigurationSecretRef: &v1.LocalObjectReference{
 				Name: apicastConfigSecretName,
 			},
-			CACertificateSecretRef: &v1.LocalObjectReference{
+			CustomCABundleConfigMapRef: &v1.LocalObjectReference{
 				Name: "cacert",
 			},
 		},
 	}
 
-	objs := []runtime.Object{embeddedConfigSecret, cacertSecret}
+	objs := []runtime.Object{embeddedConfigSecret, cacertConfigMap}
 	cl := fake.NewClientBuilder().WithRuntimeObjects(objs...).Build()
 	optsProvider := NewApicastOptionsProvider(apicastCR, cl)
 	opts, err := optsProvider.GetApicastOptions(context.TODO())
@@ -294,9 +302,9 @@ func TestCaCertificateOption(t *testing.T) {
 		t.Fatal("options should not be nil")
 	}
 
-	if !reflect.DeepEqual(opts.CACertificateSecret, cacertSecret) {
-		t.Fatalf("cacert secret mismatch: %s",
-			cmp.Diff(cacertSecret, opts.CACertificateSecret))
+	if !reflect.DeepEqual(opts.CustomCABundleConfigMap, cacertConfigMap) {
+		t.Fatalf("cacert configmap mismatch: %s",
+			cmp.Diff(cacertConfigMap, opts.CustomCABundleConfigMap))
 	}
 }
 

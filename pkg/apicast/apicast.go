@@ -43,7 +43,7 @@ const (
 const (
 	HTTPSCertificatesMountPath  = "/var/run/secrets/apicast"
 	HTTPSCertificatesVolumeName = "https-certificates"
-	CACertificatesSecretKey     = "ca-bundle.crt"
+	CACertificatesConfigMapKey  = "ca-bundle.crt"
 	CACertificatesVolumeName    = "ca-certificate"
 	CustomPoliciesMountBasePath = "/opt/app-root/src/policies"
 	CustomEnvsMountBasePath     = "/opt/app-root/src/custom-environments"
@@ -99,7 +99,7 @@ func (a *APIcast) deploymentVolumeMounts() []v1.VolumeMount {
 	}
 
 	// Use the same mount path with https certificate
-	if a.options.CACertificateSecret != nil {
+	if a.options.CustomCABundleConfigMap != nil {
 		volumeMounts = append(volumeMounts, v1.VolumeMount{
 			Name:      CACertificatesVolumeName,
 			MountPath: HTTPSCertificatesMountPath,
@@ -183,16 +183,18 @@ func (a *APIcast) deploymentVolumes() []v1.Volume {
 		})
 	}
 
-	if a.options.CACertificateSecret != nil {
+	if a.options.CustomCABundleConfigMap != nil {
 		volumes = append(volumes, v1.Volume{
 			Name: CACertificatesVolumeName,
 			VolumeSource: v1.VolumeSource{
-				Secret: &v1.SecretVolumeSource{
-					SecretName: a.options.CACertificateSecret.Name,
+				ConfigMap: &v1.ConfigMapVolumeSource{
+					LocalObjectReference: v1.LocalObjectReference{
+						Name: a.options.CustomCABundleConfigMap.Name,
+					},
 					Items: []v1.KeyToPath{
 						{
-							Key:  CACertificatesSecretKey,
-							Path: "ca-bundle.crt", // Map the secret key to the ca-bundle.crt file in the container
+							Key:  CACertificatesConfigMapKey,
+							Path: "ca-bundle.crt", // Map the configmap key to the ca-bundle.crt file in the container
 						},
 					},
 				},
@@ -357,7 +359,7 @@ func (a *APIcast) deploymentEnv() []v1.EnvVar {
 			k8sutils.EnvVarFromValue("APICAST_HTTPS_CERTIFICATE_KEY", fmt.Sprintf("%s/%s", HTTPSCertificatesMountPath, v1.TLSPrivateKeyKey)))
 	}
 
-	if a.options.CACertificateSecret != nil {
+	if a.options.CustomCABundleConfigMap != nil {
 		env = append(env,
 			k8sutils.EnvVarFromValue("SSL_CERT_FILE", path.Join(HTTPSCertificatesMountPath, "ca-bundle.crt")))
 	}
