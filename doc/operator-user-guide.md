@@ -437,22 +437,24 @@ $ echo quit | openssl s_client -showcerts -connect 127.0.0.1:8443 2>/dev/null | 
 The downloaded certificate should match provided certificate.
 
 #### Override default CA certificate at pod level
-You can override the default CA certificate used by APIcast pod with `caCertificateSecretRef` field.
+You can override the default CA certificate used by APIcast pod with `customCABundleConfigMapRef` field.
+
+> **Note:** Setting `customCABundleConfigMapRef` replaces the CA bundle used by APIcast (`SSL_CERT_FILE`). The ConfigMap must contain a complete CA certificate bundle in PEM format including any custom CA certificates and, if required, system/public CA certificates (e.g. for TLS verification of upstream backend services, 3scale API manager, or external OAuth/OIDC providers).
 
 Steps to override CA certificate at pod level:
 
-1.- Genrate CA certificate
+1.- Generate CA certificate
 ```
 openssl genrsa -out rootCA.key 2048
 openssl req -batch -new -x509 -nodes -key rootCA.key -sha256 -days 1024 -out rootCA.pem
 ```
 
-2.- Create the certificate secret
+2.- Create the ConfigMap
 ```
-kubectl create secret generic cacert --namespace=apicast-test --from-file=ca-bundle.crt=rootCA.pem
+kubectl create configmap cacert --namespace=apicast-test --from-file=ca-bundle.crt=rootCA.pem
 ```
 
-3.- Reference the certificate secret in APIcast CR
+3.- Reference the ConfigMap in APIcast CR
 
 ```
 apiVersion: apps.3scale.net/v1alpha1
@@ -461,7 +463,7 @@ metadata:
   name: apicast1
 spec:
   ...
-  caCertificateSecretRef:
+  customCABundleConfigMapRef:
     name: cacert
 ```
 

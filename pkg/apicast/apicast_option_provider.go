@@ -137,11 +137,11 @@ func (a *APIcastOptionsProvider) GetApicastOptions(ctx context.Context) (*APIcas
 	}
 	a.APIcastOptions.HTTPSCertificateSecret = httpsCertificateSecret
 
-	caCertificateSecret, err := a.getCACertificateSecret(ctx)
+	customCABundleConfigMap, err := a.getCustomCABundleConfigMap(ctx)
 	if err != nil {
 		return nil, err
 	}
-	a.APIcastOptions.CACertificateSecret = caCertificateSecret
+	a.APIcastOptions.CustomCABundleConfigMap = customCABundleConfigMap
 
 	// Resource requirements
 	resourceRequirements := DefaultResourceRequirements(a.APIcastCR.Spec.Hpa)
@@ -378,41 +378,41 @@ func (a *APIcastOptionsProvider) getHTTPSCertificateSecret(ctx context.Context) 
 	return secret, err
 }
 
-func (a *APIcastOptionsProvider) getCACertificateSecret(ctx context.Context) (*v1.Secret, error) {
-	if a.APIcastCR.Spec.CACertificateSecretRef == nil {
+func (a *APIcastOptionsProvider) getCustomCABundleConfigMap(ctx context.Context) (*v1.ConfigMap, error) {
+	if a.APIcastCR.Spec.CustomCABundleConfigMapRef == nil {
 		return nil, nil
 	}
 
 	errors := field.ErrorList{}
 	specFldPath := field.NewPath("spec")
-	caCertificateSecretRefFldPath := specFldPath.Child("caCertificateSecretRef")
-	secretNameFldPath := caCertificateSecretRefFldPath.Child("name")
+	customCABundleConfigMapRefFldPath := specFldPath.Child("customCABundleConfigMapRef")
+	configMapNameFldPath := customCABundleConfigMapRefFldPath.Child("name")
 
 	ns := a.APIcastCR.Namespace
 
-	if a.APIcastCR.Spec.CACertificateSecretRef.Name == "" {
-		errors = append(errors, field.Required(secretNameFldPath, "secret name not provided"))
+	if a.APIcastCR.Spec.CustomCABundleConfigMapRef.Name == "" {
+		errors = append(errors, field.Required(configMapNameFldPath, "configmap name not provided"))
 		return nil, errors.ToAggregate()
 	}
 
 	namespacedName := types.NamespacedName{
-		Name:      a.APIcastCR.Spec.CACertificateSecretRef.Name,
+		Name:      a.APIcastCR.Spec.CustomCABundleConfigMapRef.Name,
 		Namespace: ns,
 	}
 
-	secret := &v1.Secret{}
-	err := a.Client.Get(ctx, namespacedName, secret)
+	configMap := &v1.ConfigMap{}
+	err := a.Client.Get(ctx, namespacedName, configMap)
 	if err != nil {
 		// NotFoundError is also an error, it is required to exist
 		return nil, err
 	}
 
-	if _, ok := secret.Data[CACertificatesSecretKey]; !ok {
-		errors = append(errors, field.Required(secretNameFldPath, fmt.Sprintf("Required secret key, %s not found", CACertificatesSecretKey)))
+	if _, ok := configMap.Data[CACertificatesConfigMapKey]; !ok {
+		errors = append(errors, field.Required(configMapNameFldPath, fmt.Sprintf("Required configmap key, %s not found", CACertificatesConfigMapKey)))
 		return nil, errors.ToAggregate()
 	}
 
-	return secret, nil
+	return configMap, nil
 }
 
 func (a *APIcastOptionsProvider) validateCustomPolicySecret(ctx context.Context, nn types.NamespacedName) (*v1.Secret, error) {
